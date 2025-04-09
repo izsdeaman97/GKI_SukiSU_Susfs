@@ -130,7 +130,7 @@ jobs:
           # Clone repositories using the branch names
           git clone https://github.com/WildPlusKernel/AnyKernel3.git -b "gki-2.0"
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          git clone https://github.com/izsdeaman97/SukiSU_patch.git
 
       - name: Set CONFIG Environment Variable
         run: |
