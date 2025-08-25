@@ -56,7 +56,7 @@ jobs:
           echo " "
           echo "======================================================="
           
-      - name:Cài đặt các phụ thuộc
+      - name: Cài đặt các phụ thuộc
         run: sudo apt install -y git curl jq
 
       - name: Nhận phiên bản KSU & SUSFS
