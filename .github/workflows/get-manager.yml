@@ -190,7 +190,7 @@ jobs:
 
           # Được người dùng gọi hay được tác giả tải lên bản phát hành?
 
-          if [ "${{ github.workflow }}" == "Bản phát hành thử nghiệm" ]; then
+          if [ "${{ github.workflow }}" == "Test Release" ]; then
             echo "Đây là quy trình phát hành thử nghiệm"
             mkdir -p susfs-module && mv $NAME susfs-module
           else
