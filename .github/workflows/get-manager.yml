@@ -1,0 +1,218 @@
+name: GetManager
+permissions:
+  contents: write  # Allow writing to repository contents (for pushing tags)
+  actions: read   # Allows triggering actions
+
+on:
+  workflow_call: # This allows this workflow to be called from another workflow
+    inputs:
+      kernelsu_variant:
+        required: true
+        type: string
+    outputs:
+      susVer:
+        description: "The fetched SUSFS version number"
+        value: ${{ jobs.get_ksu_manager.outputs.susVer }}
+
+      ksuVer:
+        description: "The calculated KSU version number"
+        value: ${{ jobs.get_ksu_manager.outputs.ksuVer }}
+
+jobs:
+  get_ksu_manager:
+    runs-on: ubuntu-latest
+    outputs:
+      # Đầu ra 1: Số phiên bản KSU
+      ksuVer: ${{ steps.get_version.outputs.kversion }}
+      # Đầu ra 2: Số phiên bản SUSFS
+      susVer: ${{ steps.get_version.outputs.sversion }}
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: 🧐 Debug Workflow Caller Context
+        run: |
+          echo "==================== DEBUG CONTEXT ===================="
+          echo " "
+          echo "EVENT NAME: ${{ github.event_name }}"
+          echo " "
+          echo "--- CALLER INFORMATION ---"
+          echo "  - Caller Repository: ${{ github.caller_repository }}"
+          echo "  - Caller Workflow:   ${{ github.caller_workflow }}"
+          echo "  - Caller User:       ${{ github.triggering_actor }}"
+          echo " "
+          echo "--- WORKFLOW & JOB INFORMATION ---"
+          echo "  - Current Workflow:  ${{ github.workflow }}"
+          echo "  - Current Job ID:    ${{ github.job }}"
+          echo "  - Current Run ID:    ${{ github.run_id }}"
+          echo "  - Current Run Number:${{ github.run_number }}"
+          echo " "
+          echo "--- GIT REFERENCE INFORMATION ---"
+          echo "  - Git Ref:           ${{ github.ref }}"
+          echo "  - Ref Type:          ${{ github.ref_type }}"
+          echo " "
+          echo "======================================================="
+          
+      - name:Cài đặt các phụ thuộc
+        run: sudo apt install -y git curl jq
+
+      - name: Nhận phiên bản KSU & SUSFS
+        id: get_version
+        run: |
+
+          if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
+            echo "This is the Next variant"
+            git clone https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
+          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
+            echo "This is the SukiSU variant"
+            git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
+          elif [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
+            echo "This is the Official"
+            git clone https://github.com/tiann/KernelSU.git KernelSU
+          elif [ "${{ inputs.kernelsu_variant }}" == "MKSU" ]; then
+            echo "This is the Official"
+            git clone https://github.com/5ec1cff/KernelSU.git KernelSU    
+          else
+            echo "Unknown variant"
+          fi
+
+          VAR=$([[ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]] && echo 700 || echo 200)
+
+          cd KernelSU
+
+          # Tính toán số phiên bản KSU
+          KSU_GIT_VERSION=$(git rev-list --count HEAD)
+          KSU_VERSION=$((10000 + KSU_GIT_VERSION + VAR))
+          echo $KSU_VERSION
+          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+
+          # Tính toán số phiên bản SUSFS
+          INFO="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android14-6.1/ksu_module_susfs/module.prop\?ref_type\=heads"
+          SUS_VERSION=$(curl -s $INFO | awk -F '=' '$1 == "version" { print $2 }')
+          echo $SUS_VERSION
+
+          # Xuất hai giá trị này để phát hành
+          echo "kversion=$KSU_VERSION" >> $GITHUB_OUTPUT
+          echo "sversion=$SUS_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Thêm KernelSU
+        id: add_KSU
+        continue-on-error: true
+        run: |
+          if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
+            echo "KernelSU Next..."
+            REPO="KernelSU-Next/KernelSU-Next"
+          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
+            echo "SukiSU..."
+            REPO="SukiSU-Ultra/SukiSU-Ultra"
+          elif [ "${{ inputs.kernelsu_variant }}" == "MKSU" ]; then
+            echo "MKSU..."
+            REPO="5ec1cff/KernelSU"
+          elif [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
+            echo "KSU..."
+            REPO="tiann/KernelSU"
+          fi
+
+          FILENAME=$([[ "${{ inputs.kernelsu_variant }}" == "Next" ]] && echo "build-manager-ci.yml" || echo "build-manager.yml")
+          KSUM=$([[ "${{ inputs.kernelsu_variant }}" == "Next" ]] && echo "Manager" || echo "manager")
+          
+          # khởi tạo
+          NUMBER=0
+          DOWNLOAD_URL=""
+
+          echo "Bắt đầu tìm kiếm các bản dựng có chứa hiện vật 'manager'..."
+          while true; do
+            echo "--------------------------------------------------"
+            echo "Đang kiểm tra số bản dựng lịch sử ${NUMBER} (0 là số mới nhất)..."
+
+            if [ "$NUMBER" -ge 9 ]; then
+              echo "Nếu tìm kiếm không thành công chín lần, vòng lặp sẽ thoát。"
+              break
+            fi
+
+            # 1. Nhận ID của các bản dựng thành công theo thứ tự đã chỉ định
+            BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$REPO/actions/workflows/$FILENAME/runs?status=success" |
+              jq -r '.workflow_runs['"$NUMBER"'].id')
+
+            echo "Tìm ID bản dựng: $BUILD_ID"
+
+            ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$REPO/actions/runs/$BUILD_ID/artifacts")
+
+            result=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | contains("'"$KSUM"'")) | .name')
+
+            if [ -z "$result" ]; then
+              echo "Không tìm thấy mục nào có chứa '$KSUM'"
+              NUMBER=$((NUMBER + 1))
+            else
+              echo "$result"
+              DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name == "'"$KSUM"'") | .archive_download_url')
+              break
+            fi
+
+          done
+         
+          # Tải xuống tệp Manager
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "${{ inputs.kernelsu_variant }}-管理器(${{ env.KSU_VERSION }}).zip" "$DOWNLOAD_URL"
+          echo "Tệp quản lý được tải xuống dưới dạng: ${{ inputs.kernelsu_variant }}-Manager(${{ env.KSU_VERSION }}).zip"
+          unzip *.zip
+          rm -rf *.zip
+
+      - name: Thêm mô-đun SUSFS
+        id: add_SUSFS
+        continue-on-error: true
+        run: |
+          BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/workflows/build.yml/runs?status=success" |
+          jq -r '.workflow_runs[0].id')
+
+          ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$BUILD_ID/artifacts")
+
+          DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].archive_download_url') 
+
+          NAME=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].name')
+          echo "SUSFS_NAME=$NAME" >> $GITHUB_ENV
+          NAME="susfs-$NAME.zip"
+          
+          echo $DOWNLOAD_URL
+          echo $NAME
+          # Tải xuống tệp Manager
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$NAME" "$DOWNLOAD_URL"
+          echo "$NAME Tệp đã tải xuống.zip"
+          
+          
+          echo "Kiểm tra người gọi: ${{ github.caller_workflow }}"
+
+          # Được người dùng gọi hay được tác giả tải lên bản phát hành?
+
+          if [ "${{ github.workflow }}" == "Bản phát hành thử nghiệm" ]; then
+            echo "Đây là quy trình phát hành thử nghiệm"
+            mkdir -p susfs-module && mv $NAME susfs-module
+          else
+            echo "Đây là một quy trình làm việc khác"
+            mkdir -p susfs-module && unzip *.zip -d susfs-module
+          fi
+
+      - name: Notify on failure
+        if: steps.add_KSU.outcome == 'failure'
+        run: echo "Tải xuống KSU được xây dựng bởi CI không thành công"
+
+      - name: Tải lên APK
+        if: steps.add_KSU.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.kernelsu_variant }}-Manager(${{ env.KSU_VERSION }})
+          path: |
+            *.apk
+
+      - name: Tải lên mô-đun SUSFS
+        if: steps.add_SUSFS.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: susfs-${{ env.SUSFS_NAME }}
+          path: ./susfs-module/*
