@@ -1,0 +1,30 @@
+diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
+index c11e8256f..6c53d096b 100644
+--- a/fs/notify/fdinfo.c
++++ b/fs/notify/fdinfo.c
+@@ -117,9 +117,9 @@ static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
+ 			if (kern_path(dpath, 0, &path)) {
+ 				goto out_free_pathname;
+ 			}
+-			seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
++			seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
+ 					inode_mark->wd, path.dentry->d_inode->i_ino, path.dentry->d_inode->i_sb->s_dev,
+-					inotify_mark_user_mask(mark));
++					mark->mask & IN_ALL_EVENTS, mark->ignored_mask);
+ 			show_mark_fhandle(m, path.dentry->d_inode);
+ 			seq_putc(m, '\n');
+ 			iput(inode);
+@@ -137,10 +137,10 @@ static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
+ 		 * least one bit (FS_EVENT_ON_CHILD) which is
+ 		 * used only internally to the kernel.
+ 		 */
+-		u32 mask = mark->mask & IN_ALL_EVENTS;
++		// u32 mask = mark->mask & IN_ALL_EVENTS;
+ 		seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
+ 			   inode_mark->wd, inode->i_ino, inode->i_sb->s_dev,
+-			   mask, mark->ignored_mask);
++			   mark->mask & IN_ALL_EVENTS, mark->ignored_mask);
+ 		show_mark_fhandle(m, inode);
+ 		seq_putc(m, '\n');
+ 		iput(inode);
+   
