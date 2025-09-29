@@ -1,0 +1,84 @@
+name: Biên dịch kernel a14-6-1
+
+permissions:
+  contents: write  # Allow writing to repository contents (for pushing tags)
+  actions: write   # Allows triggering actions
+  
+on:
+  workflow_dispatch:
+    inputs:
+      kernelsu_variant:
+        description: "Chọn KernelSU"
+        required: true
+        type: choice
+        options:
+          - Official
+          - Next
+          - MKSU
+          - SukiSU
+        default: SukiSU
+      kernelsu_branch:
+        description: "Chọn nhánh ksu"
+        required: true
+        type: choice
+        options:
+          - Stable(Ổn định)
+          - Dev(Phát triển)
+          - Other(Khác/Chỉ định)
+        default: Dev(Phát triển)
+      version:
+        description: 'Tên phiên bản tùy chỉnh (ví dụ: nếu các ký tự sau 6.1.93 được để trống, số phiên bản mặc định sẽ được sử dụng)'
+        required: false
+        type: string
+      build_time:
+        description: 'Đặt thời gian xây dựng hạt nhân (định dạng xem mô tả kho lưu trữ)'
+        required: false
+        type: string
+      use_zram:
+        description: 'Bạn có muốn bật tính năng thêm nhiều thuật toán ZRAM hơn không?'
+        required: true
+        type: boolean
+        default: true
+      use_kpm:
+        description: 'Có bật chức năng KPM không?'
+        required: true
+        type: boolean
+        default: true
+      get_manager:
+        description: 'Bạn có muốn xây dựng phiên bản KSU Manager và mô-đun SUSFS mới nhất không?'
+        required: true
+        type: boolean
+        default: true
+      fast:
+        description: '编译加速(无法自定义版本):平均加快7分钟'
+        required: false
+        type: boolean
+        default: false
+      onlyAk3:
+        description: 'Tăng tốc độ biên dịch (không thể tùy chỉnh phiên bản): tăng tốc độ trung bình 7 phút'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+
+  build-kernel-a14-6-1:
+    uses: ./.github/workflows/kernel-a14-6.1.yml
+    secrets: inherit
+    with:
+      make_release: false
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      kernelsu_branch: ${{ inputs.kernelsu_branch }}
+      version: ${{ inputs.version }}
+      use_zram: ${{ inputs.use_zram }}
+      use_kpm: ${{ inputs.use_kpm }}
+      fast: ${{ inputs.fast }}
+      onlyAk3: ${{ inputs.onlyAk3 }}
+      build_time: ${{ inputs.build_time }}
+  get-ksu-manager:
+    if: ${{ inputs.get_manager }}
+    uses: ./.github/workflows/get-manager.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+
