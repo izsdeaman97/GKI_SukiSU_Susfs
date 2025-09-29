@@ -1,0 +1,98 @@
+name: Android 14 6.1
+permissions:
+  contents: write  # Allow writing to repository contents (for pushing tags)
+  actions: write   # Allows triggering actions
+
+on:
+  workflow_call:  # This allows this workflow to be called from another workflow
+    inputs:
+      make_release:
+        required: true
+        type: boolean
+        default: true
+      kernelsu_variant:
+        required: true
+        type: string
+        default: Next
+      kernelsu_branch:
+        required: true
+        type: string
+        default: Stable
+      version:
+        required: false
+        type: string
+        default: ""
+      use_zram:
+        description: 'Bạn có muốn bật tính năng thêm nhiều thuật toán ZRAM hơn không?'
+        required: true
+        type: boolean
+        default: true
+      use_kpm:
+        description: 'Có bật chức năng KPM không?'
+        required: true
+        type: boolean
+        default: true
+      fast:
+        description: 'Tăng tốc độ biên dịch (thử nghiệm): trung bình nhanh hơn 7 phút'
+        required: false
+        type: boolean
+        default: false
+      onlyAk3:
+        description: 'Chỉ tải lên gói nén AK3? (Không boot, tải xuống nhanh hơn)'
+        required: false
+        type: boolean
+        default: false
+      build_time:
+        description: 'Đặt thời gian xây dựng hạt nhân (định dạng xem mô tả kho lưu trữ)'
+        required: false
+        type: string
+
+jobs:
+  build-kernel-a14-6-1-kernelsu-susfs:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sub_level: "57"
+            os_patch_level: "2024-01"
+          - sub_level: "68"
+            os_patch_level: "2024-03"
+          - sub_level: "75"
+            os_patch_level: "2024-05"
+          - sub_level: "78"
+            os_patch_level: "2024-06"
+          - sub_level: "84"
+            os_patch_level: "2024-07"
+          # - sub_level: "90"
+          #   os_patch_level: "2024-08"
+          - sub_level: "93"
+            os_patch_level: "2024-09"
+          - sub_level: "112"
+            os_patch_level: "2024-11"
+          # - sub_level: "115"
+          #   os_patch_level: "2024-12"
+          - sub_level: "118"
+            os_patch_level: "2025-01"
+          - sub_level: "124"
+            os_patch_level: "2025-02"
+          # - sub_level: "128"
+          #   os_patch_level: "2025-03"
+          # - sub_level: "X"
+          #   os_patch_level: "lts"
+    uses: ./.github/workflows/gki-kernel.yml
+    secrets: inherit
+    with:
+      make_release: ${{ inputs.make_release || false }}
+      android_version: "android14"
+      kernel_version: "6.1"
+      sub_level: ${{ matrix.sub_level }}
+      os_patch_level: ${{ matrix.os_patch_level }}
+      kernelsu_variant: ${{ inputs.kernelsu_variant || 'Next' }}
+      kernelsu_branch: ${{ inputs.kernelsu_branch || 'Dev' }}
+      version: ${{ inputs.version || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_kpm: ${{ inputs.use_kpm }}
+      supp_op: ${{ inputs.supp_op || false }}
+      fast: ${{ inputs.fast }}
+      onlyAk3: ${{ inputs.onlyAk3 || false }}
+      build_time: ${{ inputs.build_time || '' }}
