@@ -81,14 +81,6 @@ jobs:
           git config --local user.name "GitHub Action"
           git add latest_sha.txt
           git commit -m "Update SukiSU latest SHA to ${{ steps.get_sha.outputs.sha }}" || exit 0
-          
-
-      - name: Set up Git for pushing
-        run: |
-          git remote set-url origin https://x-access-token:${{ secrets.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 }}@github.com/izsdeaman97/GKI_SukiSU_Susfs.git
-
-      - name: Push to sha branch
-        run: |
           git push origin sha
           
       - name: Trigger test_release.yml workflow
