@@ -1,4 +1,4 @@
-name: 测试发布
+name: Bản phát hành thử nghiệm
 
 permissions:
   contents: write  # Allow writing to repository contents (for pushing tags)
