@@ -105,6 +105,7 @@ jobs:
                 "version": "",
                 "use_zram": "true",
                 "use_kpm": "true",
+                "use_O2": "true",
                 "get_manager": "true"
               }
             }'
