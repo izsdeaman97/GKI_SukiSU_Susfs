@@ -1,0 +1,56 @@
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 3dd2941f..1b11503c 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -1076,6 +1076,21 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 	kuid_t new_uid = new->uid;
+ 	kuid_t old_uid = old->uid;
+ 
++#ifdef CONFIG_KSU_SUSFS
++	bool is_zygote_child = susfs_is_sid_equal(old->security, susfs_zygote_sid);
++	if (is_some_system_uid(new_uid.val) && is_zygote_child) {
++		if (ksu_is_allow_uid(new_uid.val)) {
++			return 0;
++		}
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++		susfs_set_current_proc_su_not_allowed();
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
++	// 	if (susfs_is_umount_for_zygote_system_process_enabled) {
++	// 		goto do_umount;
++	// 	}
++	 }
++#endif // #ifdef CONFIG_KSU_SUSFS
++
+ 	if (0 != old_uid.val) {
+ 		// old process is not root, ignore it.
+ 		return 0;
+@@ -1086,6 +1101,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 		return 0;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS
++		susfs_set_current_non_root_user_app_proc();
++#endif // #ifdef CONFIG_KSU_SUSFS
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++		susfs_set_current_proc_su_not_allowed();
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		susfs_run_sus_path_loop(new_uid.val);
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_PATH
++
+ 	if (ksu_is_allow_uid(new_uid.val)) {
+ 		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
+ 		return 0;
+@@ -1102,8 +1127,12 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 	// check old process's selinux context, if it is not zygote, ignore it!
+ 	// because some su apps may setuid to untrusted_app but they are in global mount namespace
+ 	// when we umount for such process, that is a disaster!
++#ifdef CONFIG_KSU_SUSFS
++	if (!is_zygote_child) {
++#else
+ 	bool is_zygote_child = is_zygote(old->security);
+ 	if (!is_zygote_child) {
++#endif
+ 		pr_info("handle umount ignore non zygote child: %d\n",
+ 			current->pid);
+ 		return 0;
