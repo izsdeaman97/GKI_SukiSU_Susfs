@@ -1,1 +1,1 @@
-# 适用于GKI2.0设备的SukiSU管理器和susfs内核
+# Trình quản lý SukiSU và hạt nhân susfs cho các thiết bị GKI2.0
