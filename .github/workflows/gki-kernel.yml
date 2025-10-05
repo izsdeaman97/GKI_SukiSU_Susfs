@@ -491,7 +491,7 @@ jobs:
             sed -i '$s|echo "\$res"|echo "${{ inputs.version }}"|' ./common/scripts/setlocalversion
           else
             echo "Nếu số phiên bản trống, giá trị mặc định sẽ được sử dụng."
-            sed -i '$s|echo "\$res"|echo "\$res-android14-11-g716498f88d0f-ab11695701"|' ./common/scripts/setlocalversion
+            sed -i '$s|echo "\$res"|echo "\$res-g716498f88d0f-ab11695701"|' ./common/scripts/setlocalversion
           fi
 
           # Nếu bạn cần thay đổi thời gian xây dựng, vui lòng sửa đổi biến CURRENT_TIME thành chuỗi ví dụ sau, chẳng hạn như: CURRENT_TIME="Sat Jun 07 06:29:29 UTC 2025"
